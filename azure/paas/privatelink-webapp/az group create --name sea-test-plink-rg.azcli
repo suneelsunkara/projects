@@ -1,0 +1,17 @@
+az group create --name psea-test-plink-rg --location southeastasia 
+
+az appservice plan create --name psea-test-webapp-plan --resource-group psea-test-plink-rg --location southeastasia --sku P1V2 --number-of-workers 1
+
+az webapp create --name psea-test-webapp --resource-group psea-test-plink-rg --plan psea-test-webapp-plan
+
+az network vnet create --name psea-test-plink-vnet --resource-group psea-test-plink-rg --location southeastasia --address-prefixes 10.8.0.0/16 --subnet-name plink-subnet --subnet-prefixes 10.8.100.0/24
+
+az network vnet subnet update --name plink-subnet --resource-group psea-test-plink-rg --vnet-name psea-test-plink-vnet --disable-private-endpoint-network-policies true
+
+az network private-endpoint create --name psea-test-plink-ep --resource-group psea-test-plink-rg --vnet-name psea-test-plink-vnet --subnet plink-subnet --connection-name webapp-conn --private-connection-resource-id /subscriptions/xxxxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx/resourceGroups/psea-test-plink-rg/providers/Microsoft.Web/sites/psea-test-webapp --group-id sites
+
+az network private-dns zone create --name privatelink.azurewebsites.net --resource-group psea-test-plink-rg
+
+az network private-dns link vnet create --name private-dns-link --resource-group psea-test-plink-rg --registration-enabled false --virtual-network psea-test-plink-vnet --zone-name privatelink.azurewebsites.net
+
+az network private-endpoint dns-zone-group create --name private-dns-zone --resource-group psea-test-plink-rg --endpoint-name psea-test-plink-ep --private-dns-zone privatelink.azurewebsites.net --zone-name privatelink.azurewebsites.net

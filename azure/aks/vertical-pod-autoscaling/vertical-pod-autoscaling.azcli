@@ -1,0 +1,93 @@
+$RESOURCE_GROUP_NAME = 'sea-aks-pod-sec-rg'
+$CLUSTER_NAME = 'sea-aks-cluster'
+$LOCATION= 'southeastasia'
+
+#install jq
+choco install jq
+
+# Create a service principal and read in the application ID
+$SP= $(az ad sp create-for-rbac --output json)
+$SP_ID = $(echo $SP | jq -r .appId)
+$SP_PASSWORD= $(echo $SP | jq -r .password)
+echo $SP_ID  6a544be3-2652-4eba-afed-bccf963117df
+echo $SP_PASSWORD 1h~viuCu9SR__J0ixtIjMfGuN2Mg6zGN06 
+
+# Create a resource group
+az group create --name $RESOURCE_GROUP_NAME --location $LOCATION
+
+# Create a virtual network and subnet
+az aks create --resource-group $RESOURCE_GROUP_NAME --node-resource-group 'sea-aks-node-rg' --name $CLUSTER_NAME --enable-rbac --enable-addons monitoring,http_application_routing --kubernetes-version 1.16.10 --generate-ssh-keys --service-principal $SP_ID --client-secret $SP_PASSWORD --node-vm-size Standard_Ds2_v2 --node-count 1 --vm-set-type VirtualMachineScaleSets --network-policy azure --network-plugin azure --load-balancer-sku basic --enable-cluster-autoscaler --min-count 1 --max-count 5
+
+
+# Get AKS Credentials
+az aks get-credentials --resource-group $RESOURCE_GROUP_NAME --name $CLUSTER_NAME
+
+# metrics server installation on AKS cluster
+#kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.3.6/components.yaml
+
+kubectl create namespace development
+kubectl label namespace/development purpose=development
+
+# install flash-cache app
+kubectl apply -f deployment.yaml -n development --validate=false
+
+# Get Repo Info
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+helm repo update
+
+# install Helm 3
+helm install ingress-nginx-release ingress-nginx/ingress-nginx
+
+#kube-advisor install 
+kubectl apply -f https://raw.githubusercontent.com/Azure/kube-advisor/master/sa.yaml?token=ABLLDqUpCcBLHrAoMNOCwSahn4b-hwKKks5bl-0QwA%3D%3D
+#if RBAC is used
+kubectl run --rm -i -t kube-advisor --image=mcr.microsoft.com/aks/kubeadvisor --restart=Never --serviceaccount=kube-advisor
+#if RBAC is not used
+kubectl run --rm -i -t kubeadvisor --image=mcr.microsoft.com/aks/kubeadvisor --restart=Never --namespace default
+
+#prometheus installation
+git clone https://github.com/helm/charts.git
+https://www.infrakloud.com/2019/03/setup-prometheus-grafana-monitoring-on-azure-kubernetes-cluster-aks/
+https://itnext.io/using-prometheus-in-azure-kubernetes-service-aks-ae22cada8dd9
+
+kubectl create namespace monitoring
+helm install stable/prometheus --namespace monitoring --set rbac.create=true --generate-name
+$POD_NAME=$(kubectl get pods --namespace monitoring -l "app=prometheus,component=server" -o jsonpath="{.items[0].metadata.name}")
+kubectl --namespace monitoring port-forward $POD_NAME 9090
+
+$POD_NAME=$(kubectl get pods --namespace monitoring -l "app=prometheus,component=pushgateway" -o jsonpath="{.items[0].metadata.name}")
+kubectl --namespace monitoring port-forward $POD_NAME 9091
+
+#grafana installation
+helm install stable/grafana --set persistence.enabled=true --set persistence.accessModes={ReadWriteOnce} --set persistence.size=8Gi -n grafana --namespace monitoring --generate-name
+helm install stable/grafana --set persistence.enabled=true -n grafana --namespace monitoring --generate-name
+$pwd = kubectl get secret --namespace monitoring grafana-1599286479 -o jsonpath="{.data.admin-password}"
+echo $pwd
+$POD_NAME=$(kubectl get pods --namespace monitoring -l "app.kubernetes.io/name=grafana,app.kubernetes.io/instance=grafana-1599286479" -o jsonpath="{.items[0].metadata.name}")
+kubectl --namespace monitoring port-forward $POD_NAME 3000
+
+#install locust
+https://dev.to/azure/running-locust-on-azure-2k40
+
+gmjvagfECasyGFsNXG7aEseoV2aVeKl7vrKnIPaH
+
+kubectl config view
+kubectl config set-context --current --cluster=sea-aks-cluster
+kubectl config set-context --current --namespace=development
+kubectl get services
+
+#Install VPA for Pods 
+git clone https://github.com/kubernetes/autoscaler.git
+cd autoscaler/vertical-pod-autoscaler
+
+#install Goldlocks from https://github.com/FairwindsOps/goldilocks
+helm repo add fairwinds-stable https://charts.fairwinds.com/stable
+kubectl create namespace goldilocks
+helm install goldilocks --namespace goldilocks fairwinds-stable/goldilocks 
+kubectl label ns goldilocks goldilocks.fairwinds.com/enabled=true
+kubectl label ns development goldilocks.fairwinds.com/enabled=true
+
+kubectl delete vpa flask-cache
+
+kubectl -n goldilocks port-forward svc/goldilocks-dashboard 8088:80

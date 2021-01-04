@@ -1,0 +1,22 @@
+# Get All azure subscrptions list
+az account list
+
+# Set the context for specific Azure Subscription 
+az account set -s xxxxxx-xxxxxx-xxxxxx-xxxxxx-xxxxxx
+
+# Create Azure Resource Group
+az group create --name sea-xpsingle-93-test --location SouthEastAsia
+
+# Create Azure Virtual Network with appropriate network and subnet prefixes
+az network vnet create --name test-vnet --resource-group Sea-AdvNetworking-Test --address-prefix 10.0.0.0/16 --subnet-name test-subnet --subnet-prefix 10.0.0.0/24
+
+#create Proximity Placement Group
+az ppg create -n test-vm-ppg -g sea-xpsingle-93-test -l SouthEastAsia -t standard
+
+#Check to see if you have enough cores for VM deployments in your region
+az vm list-usage --location SouthEastAsia --output table
+
+# Create Azure Vitual machine with Accelerated Networking flag a true and ppg enabled along with avaiability set
+# If you are using Win2019Datacenter as the image them use --image Win2019Datacenter or use any existing VM image that you already have 
+az vm create --name test-vm1 --resource-group Sea-AdvNetworking-Test --accelerated-networking true --ppg  test-vm-ppg --availability-set sea-vm-acc-network-avset --admin-username demoadmin --admin-password pwd --computer-name test-vm1 --enable-agent true --image test-vm1-image-20200314193936 --size Standard_DS2_v2 --vnet-name test-vnet --subnet test-subnet
+az vm create --name test-vm2 --resource-group Sea-AdvNetworking-Test --accelerated-networking true --ppg  test-vm-ppg --availability-set sea-vm-acc-network-avset --admin-username demoadmin --admin-password pwd --computer-name test-vm2 --enable-agent true --image test-vm1-image-20200314193936 --size Standard_DS2_v2 --vnet-name test-vnet --subnet test-subnet

@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-cache
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: flask-cache
+  template:
+    metadata:
+      labels:
+        name: flask-cache
+    spec:
+      containers:
+        - name: cache-service
+          image: xasag94215/flask-cache
+          resources:
+            limits:
+              cpu: 899m
+              memory: 2290Mi
+            requests:
+              cpu: 25m
+              memory: 250Mi
+          ports:
+            - containerPort: 5000
+              name: rest
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flask-cache
+spec:
+  selector:
+    name: flask-cache
+  ports:
+    - port: 80
+      targetPort: 5000
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: flask-cache
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          serviceName: flask-cache
+          servicePort: 80
+        path: /

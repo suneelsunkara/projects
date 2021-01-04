@@ -1,0 +1,28 @@
+# Get All azure subscrptions list
+az account list
+
+# Set the context for specific Azure Subscription 
+az account set --subsription xxxxx-xxx-xxxx-xxxx-xxxxxxxxxx
+
+# Create Azure Resource Group
+az group create --name Sea-AdvNetworking-Test --location SouthEastAsia
+
+# Create Azure Virtual Network with appropriate network and subnet prefixes
+az network vnet create --name test-vnet --resource-group Sea-AdvNetworking-Test --address-prefix 10.0.0.0/16 --subnet-name test-subnet --subnet-prefix 10.0.0.0/24
+
+# Create Azure Vitual machine with Accelerated Networking flag a false
+az vm create --name test-vm1 --resource-group Sea-AdvNetworking-Test --accelerated-networking false --admin-username demoadmin --admin-password password --computer-name test-vm1 --enable-agent true --image Win2019Datacenter --license-type Windows_Server --size Standard_D3_v2 --vnet-name test-vnet --subnet test-subnet --output json
+az vm create --name test-vm2 --resource-group Sea-AdvNetworking-Test --accelerated-networking false --admin-username demoadmin --admin-password password --computer-name test-vm2 --enable-agent true --image Win2019Datacenter --license-type Windows_Server --size Standard_D3_v2 --vnet-name test-vnet --subnet test-subnet --output json
+
+# set advanced networking false on the NIC
+az network nic update --name test-vm1VMNic --resource-group Sea-AdvNetworking-Test --accelerated-networking true --output json
+az network nic update --name test-vm2VMNic --resource-group Sea-AdvNetworking-Test --accelerated-networking true --output json
+
+#create Proximity Placement Group
+az ppg create -n test-vm-ppg -g Sea-AdvNetworking-Test -l SouthEastAsia -t standard
+
+#az vm availability-set create -n test-vm-avset -g Sea-AdvNetworking-Test -ppg test-vm-ppg --platform-fault-domain-count 2 --platform-update-domain-count 2
+
+az vm update --name test-vm1  --ppg test-vm-ppg --resource-group Sea-AdvNetworking-Test
+
+az vm update --name test-vm2  --ppg test-vm-ppg --resource-group Sea-AdvNetworking-Test
